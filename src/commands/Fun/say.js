@@ -1,43 +1,47 @@
-const { ApplicationCommandOptionType, ChannelType } = require('discord.js');
+import { SlashCommandBuilder, ApplicationCommandOptionType, ChannelType } from 'discord.js';
+import { successEmbed } from '../../utils/embeds.js';
+import { logger } from '../../utils/logger.js';
+import { handleInteractionError } from '../../utils/errorHandler.js';
+import { InteractionHelper } from '../../utils/interactionHelper.js';
 
-module.exports = {
-    name: 'say',
-    description: 'Fait parler le bot dans un salon spécifique',
-    options: [
-        {
-            name: 'texte',
-            description: 'Le message que le bot doit envoyer',
-            type: ApplicationCommandOptionType.String,
-            required: true,
-        },
-        {
-            name: 'salon',
-            description: 'Le salon où envoyer le message',
-            type: ApplicationCommandOptionType.Channel,
-            required: true,
-            channelTypes: [ChannelType.GuildText], // Uniquement les salons textuels
-        }
-    ],
+export default {
+    data: new SlashCommandBuilder()
+        .setName("say")
+        .setDescription("Fait parler le bot dans un salon spécifique")
+        .addStringOption(option =>
+            option.setName("texte")
+                .setDescription("Le message que le bot doit envoyer")
+                .setRequired(true)
+        )
+        .addChannelOption(option =>
+            option.setName("salon")
+                .setDescription("Le salon où envoyer le message")
+                .setRequired(true)
+                .addChannelTypes(ChannelType.GuildText) // Uniquement les salons textuels
+        ),
+    category: 'Fun',
 
-    // C'est cette fonction qui s'exécute quand on tape la commande
-    run: async (client, interaction) => {
-        const texte = interaction.options.getString('texte');
-        const salon = interaction.options.getChannel('salon');
-
+    async execute(interaction, config, client) {
         try {
-            // Le bot envoie le message dans le salon choisi
+            // 1. On récupère le texte et le salon choisis par l'utilisateur
+            const texte = interaction.options.getString('texte');
+            const salon = interaction.options.getChannel('salon');
+
+            // 2. Le bot envoie le message directement dans le salon cible
             await salon.send(texte);
 
-            // Confirmation invisible pour les autres
-            await interaction.reply({ 
-                content: `Message envoyé avec succès dans ${salon} !`, 
-                ephemeral: true 
-            });
+            // 3. On génère un embed de succès pour te confirmer que c'est envoyé
+            const embed = successEmbed("Message envoyé !", `Mon message a bien été posté dans le salon ${salon}.`);
+
+            // 4. On répond de manière éphémère (il n'y a que toi qui vois la confirmation)
+            await InteractionHelper.safeReply(interaction, { embeds: [embed], ephemeral: true });
+            
+            logger.debug(`Say command executed by user ${interaction.user.id} in guild ${interaction.guildId}`);
         } catch (error) {
-            console.error(error);
-            await interaction.reply({ 
-                content: "Je n'ai pas pu envoyer le message. Vérifie mes permissions dans ce salon !", 
-                ephemeral: true 
+            logger.error('Say command error:', error);
+            await handleInteractionError(interaction, error, {
+                commandName: 'say',
+                source: 'say_command'
             });
         }
     },
