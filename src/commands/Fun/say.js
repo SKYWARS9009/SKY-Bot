@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ApplicationCommandOptionType, ChannelType } from 'discord.js';
+import { SlashCommandBuilder, ChannelType, PermissionFlagsBits } from 'discord.js';
 import { successEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
@@ -17,23 +17,24 @@ export default {
             option.setName("salon")
                 .setDescription("Le salon où envoyer le message")
                 .setRequired(true)
-                .addChannelTypes(ChannelType.GuildText) // Uniquement les salons textuels
-        ),
+                .addChannelTypes(ChannelType.GuildText)
+        )
+        // Optionnel : Restreint la commande aux admins pour éviter le spam
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
     category: 'Fun',
 
     async execute(interaction, config, client) {
         try {
-            // 1. On récupère le texte et le salon choisis par l'utilisateur
             const texte = interaction.options.getString('texte');
             const salon = interaction.options.getChannel('salon');
 
-            // 2. Le bot envoie le message directement dans le salon cible
-            await salon.send(texte);
+            // Envoi du message dans le salon ciblé
+            await salon.send({ content: texte });
 
-            // 3. On génère un embed de succès pour te confirmer que c'est envoyé
+            // Préparation de l'embed de succès pour l'utilisateur
             const embed = successEmbed("Message envoyé !", `Mon message a bien été posté dans le salon ${salon}.`);
 
-            // 4. On répond de manière éphémère (il n'y a que toi qui vois la confirmation)
+            // Réponse éphémère (invisible pour les autres membres)
             await InteractionHelper.safeReply(interaction, { embeds: [embed], ephemeral: true });
             
             logger.debug(`Say command executed by user ${interaction.user.id} in guild ${interaction.guildId}`);
